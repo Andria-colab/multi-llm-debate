@@ -56,6 +56,10 @@ class ModelCallError(RuntimeError):
     """Raised when the model never returns a schema-valid response within max_retries."""
 
 
+class _NonRetryableResponse(RuntimeError):
+    """A response re-asking cannot fix: truncated (MAX_TOKENS) or blocked (SAFETY/RECITATION)."""
+
+
 @dataclass
 class CallResult:
     """One model call's outcome: the validated object plus its accounting."""
@@ -102,10 +106,16 @@ class GeminiClient:
     def _client(self) -> object:
         if self._genai_client is None:
             from google import genai  # lazy: package imports without google-genai installed
+            from google.genai import types
 
             if not self.settings.api_key:
                 raise OfflineError("GEMINI_API_KEY is not set; cannot make live calls.")
-            self._genai_client = genai.Client(api_key=self.settings.api_key)
+            # Wire request_timeout_s (SDK wants milliseconds) so a hung connection raises and
+            # trips backoff instead of blocking the run forever.
+            self._genai_client = genai.Client(
+                api_key=self.settings.api_key,
+                http_options=types.HttpOptions(timeout=int(self.settings.request_timeout_s * 1000)),
+            )
         return self._genai_client
 
     # -- the one choke point ------------------------------------------------ #
@@ -131,6 +141,7 @@ class GeminiClient:
             temperature=temperature,
             seed=seed,
             thinking_budget=tb,
+            max_output_tokens=self.settings.max_output_tokens,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema_name=schema.__name__,
@@ -188,7 +199,8 @@ class GeminiClient:
         seed: int,
         thinking_budget: int,
     ) -> tuple[M, dict, float, int]:
-        from google.genai import types  # lazy
+        from google.genai import errors as genai_errors  # lazy
+        from google.genai import types
 
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -206,7 +218,15 @@ class GeminiClient:
         for attempt in range(self.settings.max_retries):
             try:
                 resp = self._call_api(contents=contents, config=config)
-            except Exception as exc:  # transient: quota / 5xx / timeout
+            except genai_errors.ClientError as exc:
+                # 4xx is permanent (bad key, unknown model, malformed schema) EXCEPT 429
+                # RESOURCE_EXHAUSTED, the free-tier quota limit, which is transient.
+                if getattr(exc, "code", None) != 429:
+                    raise
+                last_err = exc
+                self._sleep_backoff(attempt)
+                continue
+            except Exception as exc:  # ServerError (5xx) / network / timeout — transient
                 last_err = exc
                 self._sleep_backoff(attempt)
                 continue
@@ -214,6 +234,12 @@ class GeminiClient:
             usage = _usage_to_dict(getattr(resp, "usage_metadata", None))
             try:
                 obj = self._parse(resp, schema)
+            except _NonRetryableResponse as exc:
+                # MAX_TOKENS / SAFETY / RECITATION: a re-ask with the same prompt can't fix it.
+                raise ModelCallError(
+                    f"{stage}/{agent_id}: unrecoverable response ({exc}). If MAX_TOKENS, raise "
+                    f"Settings.max_output_tokens or lower thinking_budget."
+                ) from exc
             except (ValidationError, ValueError) as exc:
                 # schema-invalid (e.g. an empty Review.errors) -> trip the repair loop
                 last_err = exc
@@ -235,13 +261,26 @@ class GeminiClient:
         )
 
     @staticmethod
-    def _parse(resp: object, schema: type[M]) -> M:
+    def _finish_reason(resp: object) -> str | None:
+        candidates = getattr(resp, "candidates", None) or []
+        if not candidates:
+            return None
+        reason = getattr(candidates[0], "finish_reason", None)
+        return getattr(reason, "name", str(reason)) if reason is not None else None
+
+    @classmethod
+    def _parse(cls, resp: object, schema: type[M]) -> M:
         parsed = getattr(resp, "parsed", None)
         if isinstance(parsed, schema):
             return parsed
+        # No parsed object: distinguish a fixable bad-JSON case from an unrecoverable one.
+        reason = cls._finish_reason(resp)
+        if reason in {"MAX_TOKENS", "SAFETY", "RECITATION"}:
+            feedback = getattr(resp, "prompt_feedback", None)
+            raise _NonRetryableResponse(f"finish_reason={reason}; prompt_feedback={feedback}")
         text = getattr(resp, "text", None)
         if not text:
-            raise ValueError("empty model response")
+            raise ValueError(f"empty model response (finish_reason={reason})")
         return schema.model_validate_json(text)
 
     def _sleep_backoff(self, attempt: int) -> None:

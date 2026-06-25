@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from debate.client import FakeClient, GeminiClient, OfflineError
+from debate.client import FakeClient, GeminiClient, ModelCallError, OfflineError
 from debate.config import Settings
 from debate.dataset import load_problems, verify
 from debate.engine import run_debate
@@ -75,6 +75,23 @@ def test_cost_meta_counts_every_call() -> None:
     record = run_debate(problem, client=FakeClient(answer="x"))
     assert len(record.cost.timings) == 17
     assert record.cost.n_api_calls + record.cost.n_cache_hits == 17
+
+
+def test_seed_helpers_respect_injected_settings() -> None:
+    """A custom base_seed must actually change the derived seeds (not read the global)."""
+    from debate.config import per_problem_seed
+
+    assert per_problem_seed("p1", Settings(base_seed=7)) != per_problem_seed(
+        "p1", Settings(base_seed=42)
+    )
+
+
+def test_invalid_judge_label_fails_loud() -> None:
+    """A judge label that isn't one of the presented candidates must raise, not silently
+    credit whichever solver landed in the first shuffle slot."""
+    problem = load_problems()[0]
+    with pytest.raises(ModelCallError):
+        run_debate(problem, client=FakeClient(answer="x", judge_pick_label="formalist"))
 
 
 def test_offline_gemini_client_refuses_live_call() -> None:

@@ -22,7 +22,7 @@ from random import Random
 from typing import Callable, TypeVar
 
 from .agents import Agent, LLMClient, build_agents
-from .client import CallResult, GeminiClient
+from .client import CallResult, GeminiClient, ModelCallError
 from .config import SETTINGS, Settings, per_problem_seed
 from .interfaces import (
     CostMeta,
@@ -60,6 +60,11 @@ def _map_concurrent(
         futures = {pool.submit(fn, x): i for i, x in enumerate(items)}
         for future, idx in futures.items():
             results[idx] = future.result()  # re-raises any worker exception
+    # A worker that neither returned nor raised would leave a None and silently shrink a
+    # stage's cardinality — fail loud instead (cannot happen with the current clients).
+    missing = [i for i, r in enumerate(results) if r is None]
+    if missing:
+        raise RuntimeError(f"concurrent workers produced no result at indices {missing}")
     return [r for r in results if r is not None]
 
 
@@ -168,7 +173,7 @@ def run_debate(
 
     # -- Stage 4: judgment (×1) — shuffled + anonymized to fight position bias #
     shuffled = list(refinements)
-    Random(per_problem_seed(problem.id)).shuffle(shuffled)
+    Random(per_problem_seed(problem.id, settings)).shuffle(shuffled)
     labeled = [(f"candidate_{i + 1}", ref) for i, ref in enumerate(shuffled)]
     label_to_solver = {label: ref.solver_id for label, ref in labeled}
 
@@ -183,7 +188,14 @@ def run_debate(
     judgment: Judgment = judge_res.parsed  # type: ignore[assignment]
 
     # Map the chosen anonymized label back to a real solver; copy the answer ourselves.
-    winner_id = label_to_solver.get(judgment.winner_solver_id, labeled[0][1].solver_id)
+    # Fail loud on an invalid/hallucinated label rather than silently crediting whichever
+    # solver the shuffle placed first — that would mask a judge failure as a clean record.
+    if judgment.winner_solver_id not in label_to_solver:
+        raise ModelCallError(
+            f"judge returned an invalid winner label {judgment.winner_solver_id!r}; "
+            f"expected one of {sorted(label_to_solver)}."
+        )
+    winner_id = label_to_solver[judgment.winner_solver_id]
     winner_refinement = next(r for r in refinements if r.solver_id == winner_id)
     judgment.winner_solver_id = winner_id
     judgment.final_answer = winner_refinement.refined_answer
@@ -198,5 +210,5 @@ def run_debate(
         judgment=judgment,
         final_answer=winner_refinement.refined_answer,
         cost=_aggregate_cost(timings),
-        run_seed=per_problem_seed(problem.id),
+        run_seed=per_problem_seed(problem.id, settings),
     )

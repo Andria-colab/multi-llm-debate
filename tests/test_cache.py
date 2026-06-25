@@ -19,6 +19,7 @@ def _key(**overrides) -> str:
         temperature=0.7,
         seed=42,
         thinking_budget=-1,
+        max_output_tokens=8192,
         system_prompt="you are a solver",
         user_prompt="solve this",
         schema_name="Solution",
@@ -40,6 +41,7 @@ def test_key_is_deterministic() -> None:
         ("system_prompt", "you are a judge"),
         ("schema_name", "Review"),
         ("thinking_budget", 0),
+        ("max_output_tokens", 4096),
         ("model", "gemini-2.5-pro"),
         ("agent_id", "lateral"),
     ],
@@ -54,7 +56,9 @@ def test_put_then_get_round_trip(tmp_path: Path) -> None:
     usage = {"prompt_tokens": 10, "output_tokens": 20, "thinking_tokens": 5, "total_tokens": 35}
     cache_put(key, obj, usage, problem_id="p1", stage="stage1", agent_id="formalist", root=tmp_path)
 
-    hit = cache_get(key, Solution, problem_id="p1", stage="stage1", agent_id="formalist", root=tmp_path)
+    hit = cache_get(
+        key, Solution, problem_id="p1", stage="stage1", agent_id="formalist", root=tmp_path
+    )
     assert hit is not None
     got, got_usage = hit
     assert got.model_dump() == obj.model_dump()
@@ -62,13 +66,26 @@ def test_put_then_get_round_trip(tmp_path: Path) -> None:
 
 
 def test_miss_returns_none(tmp_path: Path) -> None:
-    assert cache_get(_key(), Solution, problem_id="p1", stage="stage1",
-                     agent_id="formalist", root=tmp_path) is None
+    assert (
+        cache_get(
+            _key(), Solution, problem_id="p1", stage="stage1", agent_id="formalist", root=tmp_path
+        )
+        is None
+    )
 
 
 def test_wrong_key_is_a_miss(tmp_path: Path) -> None:
     """A stored entry whose full key differs (prefix collision) is treated as a miss."""
     obj = Solution(solver_id="a", reasoning="r", answer="4", confidence=0.9)
     cache_put(_key(), obj, {}, problem_id="p1", stage="stage1", agent_id="formalist", root=tmp_path)
-    assert cache_get(_key(seed=999), Solution, problem_id="p1", stage="stage1",
-                     agent_id="formalist", root=tmp_path) is None
+    assert (
+        cache_get(
+            _key(seed=999),
+            Solution,
+            problem_id="p1",
+            stage="stage1",
+            agent_id="formalist",
+            root=tmp_path,
+        )
+        is None
+    )

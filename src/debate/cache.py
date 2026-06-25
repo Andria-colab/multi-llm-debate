@@ -47,6 +47,7 @@ def make_key(
     temperature: float,
     seed: int,
     thinking_budget: int,
+    max_output_tokens: int,
     system_prompt: str,
     user_prompt: str,
     schema_name: str,
@@ -71,6 +72,7 @@ def make_key(
             f"{temperature:.6f}",
             str(seed),
             str(thinking_budget),
+            str(max_output_tokens),
             inputs_hash,
         ]
     )
@@ -81,12 +83,7 @@ def cache_path(
     problem_id: str, stage: str, agent_id: str, key: str, root: Path = CACHE_DIR
 ) -> Path:
     """Return <root>/<problem_id>/<stage>/<agent_id>__<key[:12]>.json."""
-    return (
-        root
-        / _safe(problem_id)
-        / _safe(stage)
-        / f"{_safe(agent_id)}__{key[:12]}.json"
-    )
+    return root / _safe(problem_id) / _safe(stage) / f"{_safe(agent_id)}__{key[:12]}.json"
 
 
 def cache_get(

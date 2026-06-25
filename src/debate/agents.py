@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from pydantic import BaseModel
 
-from .config import SETTINGS, AgentProfile, Settings, seed_for
+from .config import SETTINGS, AgentProfile, Settings, per_problem_seed
 from .prompts import PERSONAS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -43,9 +43,12 @@ class LLMClient(Protocol):
 class Agent:
     """One persona bound to a client. Diversity = persona + temperature + seed."""
 
-    def __init__(self, profile: AgentProfile, client: LLMClient) -> None:
+    def __init__(
+        self, profile: AgentProfile, client: LLMClient, settings: Settings = SETTINGS
+    ) -> None:
         self.profile = profile
         self.client = client
+        self.settings = settings
         self.system_prompt = PERSONAS[profile.persona]
 
     @property
@@ -61,7 +64,9 @@ class Agent:
         schema: type[M],
         thinking_budget: int | None = None,
     ) -> CallResult:
-        """Run one structured call as this agent. Seed is derived deterministically."""
+        """Run one structured call as this agent. Seed is derived deterministically from the
+        bound settings' base seed plus this agent's own profile offset (no global lookup)."""
+        seed = per_problem_seed(problem_id, self.settings) + self.profile.seed_offset
         return self.client.call(
             stage=stage,
             agent_id=self.agent_id,
@@ -70,11 +75,11 @@ class Agent:
             user_prompt=user_prompt,
             schema=schema,
             temperature=self.profile.temperature,
-            seed=seed_for(problem_id, self.agent_id),
+            seed=seed,
             thinking_budget=thinking_budget,
         )
 
 
 def build_agents(client: LLMClient, settings: Settings = SETTINGS) -> list[Agent]:
-    """Construct the four configured agents bound to ``client``."""
-    return [Agent(profile, client) for profile in settings.agents]
+    """Construct the four configured agents bound to ``client`` and ``settings``."""
+    return [Agent(profile, client, settings) for profile in settings.agents]
