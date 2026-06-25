@@ -30,21 +30,21 @@ class Category(str, Enum):
     """The four problem domains (~6-7 problems each)."""
 
     COMBINATORICS = "combinatorics"  # incl. number theory
-    PHYSICS = "physics"              # multi-step quantitative physics
-    LOGIC = "logic"                  # logic / constraint-satisfaction puzzles
-    GAME_THEORY = "game_theory"      # strategic / game-theoretic
+    PHYSICS = "physics"  # multi-step quantitative physics
+    LOGIC = "logic"  # logic / constraint-satisfaction puzzles
+    GAME_THEORY = "game_theory"  # strategic / game-theoretic
 
 
 class AnswerType(str, Enum):
     """How ``answer`` is shaped, so the verifier/normalizer knows how to compare."""
 
     INTEGER = "integer"
-    RATIONAL = "rational"      # fraction or decimal, compared exactly via sympy
-    REAL = "real"              # float with tolerance (Problem.rel_tol)
-    SYMBOLIC = "symbolic"      # expression, compared via sympy.simplify(a - b) == 0
-    SET = "set"                # unordered collection, e.g. {2, 3, 5}
-    TUPLE = "tuple"            # ordered, e.g. (x=2, y=3) -> canonicalized
-    STRING = "string"          # exact normalized token (names, sequences); last resort
+    RATIONAL = "rational"  # fraction or decimal, compared exactly via sympy
+    REAL = "real"  # float with tolerance (Problem.rel_tol)
+    SYMBOLIC = "symbolic"  # expression, compared via sympy.simplify(a - b) == 0
+    SET = "set"  # unordered collection, e.g. {2, 3, 5}
+    TUPLE = "tuple"  # ordered, e.g. (x=2, y=3) -> canonicalized
+    STRING = "string"  # exact normalized token (names, sequences); last resort
 
 
 class Role(str, Enum):
@@ -56,8 +56,8 @@ class Severity(str, Enum):
     """Severity of a located critique; weights reviews and gates sycophancy."""
 
     CRITICAL = "critical"  # invalidates the final answer
-    MAJOR = "major"        # significant flaw, answer may survive
-    MINOR = "minor"        # cosmetic / small gap
+    MAJOR = "major"  # significant flaw, answer may survive
+    MINOR = "minor"  # cosmetic / small gap
 
 
 class ErrorType(str, Enum):
@@ -65,11 +65,11 @@ class ErrorType(str, Enum):
 
     ARITHMETIC = "arithmetic"
     ALGEBRAIC = "algebraic"
-    LOGICAL = "logical"                    # invalid inference / unjustified step
-    CONCEPTUAL = "conceptual"              # wrong formula / wrong principle
+    LOGICAL = "logical"  # invalid inference / unjustified step
+    CONCEPTUAL = "conceptual"  # wrong formula / wrong principle
     MISREAD_PROBLEM = "misread_problem"
     UNSTATED_ASSUMPTION = "unstated_assumption"
-    INCOMPLETE = "incomplete"              # missing case / step
+    INCOMPLETE = "incomplete"  # missing case / step
     OTHER = "other"
 
 
@@ -113,7 +113,9 @@ class RoleSelfAssessment(BaseModel):
         ..., ge=0.0, le=1.0, description="P(this agent produces a fully correct answer)."
     )
     judge_confidence: float = Field(
-        ..., ge=0.0, le=1.0,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="P(this agent correctly picks the best of several mixed-quality candidates).",
     )
     role_preferences: list[Role] = Field(
@@ -211,7 +213,9 @@ class Judgment(BaseModel):
     """
 
     winner_solver_id: str
-    final_answer: str = Field("", description="Copied from winner.refined_answer by the orchestrator.")
+    final_answer: str = Field(
+        "", description="Copied from winner.refined_answer by the orchestrator."
+    )
     confidence: float = Field(..., ge=0.0, le=1.0)
     reasoning: str = Field(..., min_length=1)
 
@@ -228,8 +232,8 @@ class StageTiming(BaseModel):
     agent_id: str
     latency_s: float = Field(0.0, ge=0.0)
     prompt_tokens: int = Field(0, ge=0)
-    output_tokens: int = Field(0, ge=0)     # candidates_token_count (visible)
-    thinking_tokens: int = Field(0, ge=0)   # thoughts_token_count, tracked SEPARATELY
+    output_tokens: int = Field(0, ge=0)  # candidates_token_count (visible)
+    thinking_tokens: int = Field(0, ge=0)  # thoughts_token_count, tracked SEPARATELY
     total_tokens: int = Field(0, ge=0)
     cache_hit: bool = Field(False, description="True if served from disk cache, no API call.")
     retries: int = Field(0, ge=0, description="Retry attempts before success.")
@@ -243,7 +247,7 @@ class CostMeta(BaseModel):
     total_output_tokens: int = Field(0, ge=0)
     total_thinking_tokens: int = Field(0, ge=0)
     total_tokens: int = Field(0, ge=0)
-    n_api_calls: int = Field(0, ge=0)        # excludes cache hits
+    n_api_calls: int = Field(0, ge=0)  # excludes cache hits
     n_cache_hits: int = Field(0, ge=0)
     timings: list[StageTiming] = Field(default_factory=list)
 
@@ -263,15 +267,17 @@ class DebateRecord(BaseModel):
     problem: Problem
 
     role_assessments: list[RoleSelfAssessment] = Field(..., min_length=4, max_length=4)  # Stage 0
-    assignment: RoleAssignment                                                            # Stage 0.5
-    solutions: list[Solution] = Field(..., min_length=3, max_length=3)                    # Stage 1
-    reviews: list[Review] = Field(..., min_length=6, max_length=6)                        # Stage 2
-    refinements: list[RefinedSolution] = Field(..., min_length=3, max_length=3)           # Stage 3
-    judgment: Judgment                                                                    # Stage 4
+    assignment: RoleAssignment  # Stage 0.5
+    solutions: list[Solution] = Field(..., min_length=3, max_length=3)  # Stage 1
+    reviews: list[Review] = Field(..., min_length=6, max_length=6)  # Stage 2
+    refinements: list[RefinedSolution] = Field(..., min_length=3, max_length=3)  # Stage 3
+    judgment: Judgment  # Stage 4
 
     final_answer: str = Field(..., description="== judgment.final_answer; surfaced for Eval.")
     is_correct: bool | None = Field(None, description="Filled by Eval via verify().")
     cost: CostMeta = Field(default_factory=CostMeta)
 
-    run_seed: int = Field(..., description="Base seed for this problem; per-call seeds derived from it.")
+    run_seed: int = Field(
+        ..., description="Base seed for this problem; per-call seeds derived from it."
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -55,13 +55,21 @@ def _full_record() -> DebateRecord:
         )
         for a in solver_ids + [judge_id]
     ]
-    solutions = [Solution(solver_id=s, reasoning="r", answer="4", confidence=0.9) for s in solver_ids]
+    solutions = [
+        Solution(solver_id=s, reasoning="r", answer="4", confidence=0.9) for s in solver_ids
+    ]
     reviews = [
         Review(
             reviewer_id=r,
             target_solver_id=t,
-            errors=[ReviewError(location="Step 1", error_type=ErrorType.LOGICAL,
-                                severity=Severity.MINOR, description="d")],
+            errors=[
+                ReviewError(
+                    location="Step 1",
+                    error_type=ErrorType.LOGICAL,
+                    severity=Severity.MINOR,
+                    description="d",
+                )
+            ],
             overall_assessment="ok",
         )
         for r in solver_ids
@@ -71,14 +79,18 @@ def _full_record() -> DebateRecord:
     refinements = [
         RefinedSolution(
             solver_id=s,
-            changes_made=[ChangeRecord(critique_location="Step 1", accepted=True, response="fixed")],
+            changes_made=[
+                ChangeRecord(critique_location="Step 1", accepted=True, response="fixed")
+            ],
             refined_reasoning="r2",
             refined_answer="4",
             confidence=0.95,
         )
         for s in solver_ids
     ]
-    judgment = Judgment(winner_solver_id="formalist", final_answer="4", confidence=0.9, reasoning="best")
+    judgment = Judgment(
+        winner_solver_id="formalist", final_answer="4", confidence=0.9, reasoning="best"
+    )
     return DebateRecord(
         problem=_problem(),
         role_assessments=assessments,
@@ -97,16 +109,34 @@ def _full_record() -> DebateRecord:
     "obj",
     [
         _problem(),
-        RoleSelfAssessment(agent_id="a", solver_confidence=0.5, judge_confidence=0.5,
-                           role_preferences=[Role.SOLVER, Role.JUDGE], reasoning="x"),
+        RoleSelfAssessment(
+            agent_id="a",
+            solver_confidence=0.5,
+            judge_confidence=0.5,
+            role_preferences=[Role.SOLVER, Role.JUDGE],
+            reasoning="x",
+        ),
         RoleAssignment(judge_id="d", solver_ids=["a", "b", "c"], rationale="r"),
         Solution(solver_id="a", reasoning="r", answer="4", confidence=0.9),
-        ReviewError(location="Step 1", error_type=ErrorType.ARITHMETIC, severity=Severity.CRITICAL,
-                    description="d"),
-        Review(reviewer_id="a", target_solver_id="b",
-               errors=[ReviewError(location="L", error_type=ErrorType.OTHER, severity=Severity.MINOR,
-                                   description="d")],
-               overall_assessment="ok"),
+        ReviewError(
+            location="Step 1",
+            error_type=ErrorType.ARITHMETIC,
+            severity=Severity.CRITICAL,
+            description="d",
+        ),
+        Review(
+            reviewer_id="a",
+            target_solver_id="b",
+            errors=[
+                ReviewError(
+                    location="L",
+                    error_type=ErrorType.OTHER,
+                    severity=Severity.MINOR,
+                    description="d",
+                )
+            ],
+            overall_assessment="ok",
+        ),
         ChangeRecord(critique_location="Step 1", accepted=False, response="rebut"),
         RefinedSolution(solver_id="a", refined_reasoning="r", refined_answer="4", confidence=0.9),
         Judgment(winner_solver_id="a", final_answer="4", confidence=0.8, reasoning="r"),
@@ -143,5 +173,11 @@ def test_debate_record_cardinality_enforced() -> None:
 
 def test_problem_difficulty_bounds() -> None:
     with pytest.raises(ValidationError):
-        Problem(id="x", text="t", category=Category.LOGIC, ground_truth="1",
-                answer_type=AnswerType.INTEGER, difficulty=9)
+        Problem(
+            id="x",
+            text="t",
+            category=Category.LOGIC,
+            ground_truth="1",
+            answer_type=AnswerType.INTEGER,
+            difficulty=9,
+        )
