@@ -95,7 +95,8 @@ def test_invalid_judge_label_fails_loud() -> None:
 
 
 def test_offline_gemini_client_refuses_live_call() -> None:
-    client = GeminiClient(Settings(offline=True))
-    problem = load_problems()[0]
+    # An unusual base_seed shifts every cache key, so a populated on-disk cache (the live
+    # smoke tests warm data/cache) is guaranteed to miss — isolating the refusal behavior.
+    s = Settings(offline=True, base_seed=10_000_019)
     with pytest.raises(OfflineError):
-        run_debate(problem, client=client, settings=Settings(offline=True))
+        run_debate(load_problems()[0], client=GeminiClient(s), settings=s)

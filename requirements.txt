@@ -4,6 +4,7 @@
 #   pip install -e .
 
 google-genai>=1.0.0       # Gemini Developer API client (API-key auth)
+python-dotenv>=1.0        # loads .env (GEMINI_API_KEY) at import for local dev
 pydantic>=2.6             # frozen data contracts + structured-output schemas
 sympy>=1.12               # dataset verifiers / answer normalizer (P2)
 python-constraint>=1.4    # logic / constraint-satisfaction puzzles (P2)

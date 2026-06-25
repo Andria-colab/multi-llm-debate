@@ -9,6 +9,7 @@ description = "Multi-LLM Collaborative Debate System (Applied LLM Systems final 
 requires-python = ">=3.11"
 dependencies = [
     "google-genai>=1.0.0",
+    "python-dotenv>=1.0",     # loads .env (GEMINI_API_KEY) for local dev
     "pydantic>=2.6",
     "sympy>=1.12",            # P2 verifiers
     "python-constraint>=1.4", # P2 logic puzzles

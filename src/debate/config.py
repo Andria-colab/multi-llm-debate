@@ -16,6 +16,17 @@ PKG_DIR = Path(__file__).resolve().parent  # src/debate
 SRC_DIR = PKG_DIR.parent  # src
 REPO_ROOT = SRC_DIR.parent  # repo root
 
+# Load REPO_ROOT/.env into the process env BEFORE Settings reads os.getenv below, so a
+# teammate's key in .env just works. override=False means a real shell env var (e.g. CI's
+# DEBATE_OFFLINE=1) always wins over the file. python-dotenv is optional: without it, .env
+# simply isn't auto-loaded (export the vars yourself).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / ".env", override=False)
+except ImportError:  # pragma: no cover - dotenv is an optional convenience
+    pass
+
 DATA_DIR = REPO_ROOT / "data"
 CACHE_DIR = Path(os.getenv("DEBATE_CACHE_DIR", str(DATA_DIR / "cache")))
 RESULTS_DIR = REPO_ROOT / "results"
@@ -81,15 +92,22 @@ class Settings(BaseModel):
 SETTINGS = Settings()
 
 
+# The Gemini API requires the generation seed to fit in a signed INT32. Keep the per-problem
+# base comfortably under that max so adding any agent's seed_offset (max ~404) stays in range.
+_INT32_MAX = 2_147_483_647
+_SEED_SPACE = _INT32_MAX - 1000
+
+
 def per_problem_seed(problem_id: str, settings: Settings = SETTINGS) -> int:
     """Deterministic base seed for a problem, derived from ``settings.base_seed`` + id.
 
-    Takes ``settings`` (not the module global) so a caller threading a custom ``Settings``
-    — e.g. an independent re-run with a different ``base_seed`` — actually gets the seeds it
-    asked for. Defaults to the global for convenience callers.
+    Bounded to ``_SEED_SPACE`` (< INT32 max, with headroom for the agent offsets) because the
+    Gemini API rejects a seed that doesn't fit in a signed INT32. Takes ``settings`` (not the
+    module global) so a caller threading a custom ``Settings`` — e.g. an independent re-run
+    with a different ``base_seed`` — actually gets the seeds it asked for.
     """
     h = hashlib.sha256(f"{settings.base_seed}:{problem_id}".encode()).hexdigest()
-    return int(h[:8], 16)
+    return int(h[:8], 16) % _SEED_SPACE
 
 
 def seed_for(problem_id: str, agent_id: str, settings: Settings = SETTINGS) -> int:
