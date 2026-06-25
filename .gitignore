@@ -1,0 +1,35 @@
+# secrets — NEVER commit the API key
+.env
+.env.*
+!.env.example
+
+# generated / transient
+data/cache/
+results/
+logs/
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# virtualenvs
+.venv/
+venv/
+
+# notebooks
+.ipynb_checkpoints/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+
+# NOTE: figures/ and src/debate/dataset/problems.json are deliberately committed

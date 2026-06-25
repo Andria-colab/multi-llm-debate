@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "debate"
+version = "0.1.0"
+description = "Multi-LLM Collaborative Debate System (Applied LLM Systems final project)"
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai>=1.0.0",
+    "pydantic>=2.6",
+    "sympy>=1.12",            # P2 verifiers
+    "python-constraint>=1.4", # P2 logic puzzles
+    "z3-solver>=4.12",        # P2 logic/constraint (heavier; optional at first)
+    "matplotlib>=3.8",        # P3 plots
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "jupyter>=1.0",
+]
+
+[project.scripts]
+debate-run-all = "debate.eval.runner:main"   # the "run everything" entry point (P3)
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/debate"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = [
+    "live: hits the real Gemini API (excluded by default; run with -m live)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+strict = false
+ignore_missing_imports = true   # z3 / python-constraint lack type stubs

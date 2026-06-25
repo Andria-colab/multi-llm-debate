@@ -1,0 +1,12 @@
+# Runtime dependencies (mirror of [project.dependencies] in pyproject.toml).
+# Install:  pip install -r requirements.txt
+# Editable install (preferred, also registers the `debate-run-all` command):
+#   pip install -e .
+
+google-genai>=1.0.0       # Gemini Developer API client (API-key auth)
+pydantic>=2.6             # frozen data contracts + structured-output schemas
+sympy>=1.12               # dataset verifiers / answer normalizer (P2)
+python-constraint>=1.4    # logic / constraint-satisfaction puzzles (P2)
+z3-solver>=4.12           # logic/constraint solver (P2; heavier, optional at first)
+matplotlib>=3.8           # evaluation plots (P3) — a grading MUST
+numpy>=1.26

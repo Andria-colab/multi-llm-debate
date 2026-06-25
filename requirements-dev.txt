@@ -1,0 +1,10 @@
+# Development dependencies (mirror of [project.optional-dependencies].dev).
+# Install:  pip install -r requirements-dev.txt   (pulls in requirements.txt too)
+
+-r requirements.txt
+
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.5
+mypy>=1.10
+jupyter>=1.0
