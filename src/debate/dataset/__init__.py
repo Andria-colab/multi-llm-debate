@@ -2,11 +2,11 @@
 
 Public interface: ``load_problems()`` and ``verify(problem, answer)``.
 
-STUB PHASE: these are re-exported from ``._stub``. When the real dataset lands, change the
-import below to ``from .problems import load_problems`` / ``from .verifiers import verify``
-(one-line swap) and delete ``_stub.py``.
+``load_problems`` reads the 25+ real problems from ``problems.json``; ``verify`` does
+programmatic, per-``answer_type`` checking that never raises.
 """
 
-from ._stub import load_problems, verify
+from .problems import load_problems
+from .verifiers import verify
 
 __all__ = ["load_problems", "verify"]
